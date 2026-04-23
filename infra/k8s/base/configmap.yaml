@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: qr-saas
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/part-of: qr-saas
+data:
+  APP_NAME: "qr-saas"
+  APP_ENV: "production"
+  JWT_ALG: "HS256"
+  JWT_EXPIRE_MINUTES: "1440"
+  # Service DNS names inside the cluster
+  DATABASE_URL: "postgresql+psycopg2://qr:qr@postgres-svc:5432/qrsaas"
+  REDIS_URL: "redis://redis-svc:6379/0"
+  CORS_ORIGINS: "https://qr.santhira.com,http://localhost:5173"

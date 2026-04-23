@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  namespace: qr-saas
+  labels:
+    app.kubernetes.io/name: db-migrate
+    app.kubernetes.io/part-of: qr-saas
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300   # auto-cleanup 5 min after completion
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: db-migrate
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres-svc -p 5432 -U qr; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: migrate
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              echo "Running database migration..."
+              PGPASSWORD="$POSTGRES_PASSWORD" psql \
+                -h postgres-svc -U qr -d qrsaas \
+                -f /migrations/001_init.sql
+              echo "Migration complete."
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-secrets
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: migrations
+          configMap:
+            name: db-migrations
